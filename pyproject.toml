@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-can-usb8dev"
+version = "0.1.0"
+description = "Pure-Python python-can backend for the 8devices USB2CAN / Korlan (VID 0483 PID 1234), speaking the native usb_8dev USB protocol over libusb — no vendor DLL."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Troo" }]
+keywords = ["can", "canbus", "python-can", "usb2can", "korlan", "8devices", "usb_8dev", "socketcan", "j1939", "isobus"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = [
+    "python-can>=4.0",
+    "pyusb>=1.2",
+    "libusb-package>=1.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+dev = ["pytest>=7", "ruff>=0.1", "build>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/TrooCorp/python-can-usb8dev"
+Issues = "https://github.com/TrooCorp/python-can-usb8dev/issues"
+
+# Registers the driver as a first-class python-can interface. After install,
+# `can.Bus(interface="usb8dev", channel=<serial>, bitrate=...)`,
+# `can_logger -i usb8dev`, `can_viewer -i usb8dev` and
+# `can.detect_available_configs()` all discover it — as does any
+# python-can -> extcap adapter that probes backends (add "usb8dev" to its list).
+[project.entry-points."can.interface"]
+usb8dev = "can_usb8dev:Usb8DevBus"
+
+[project.scripts]
+usb8dev-record = "can_usb8dev.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
