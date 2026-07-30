@@ -1,5 +1,7 @@
 # python-can-usb8dev
 
+> ✍️ Written with [Claude Opus 4.8](https://www.anthropic.com/claude).
+
 A **pure-Python [python-can](https://python-can.readthedocs.io/) backend** for the
 [8devices USB2CAN / Korlan](https://www.8devices.com/products/usb2can_korlan)
 adapter (VID `0483`, PID `1234`).

@@ -32,8 +32,8 @@ test = ["pytest>=7"]
 dev = ["pytest>=7", "ruff>=0.1", "build>=1.0"]
 
 [project.urls]
-Homepage = "https://github.com/TrooCorp/python-can-usb8dev"
-Issues = "https://github.com/TrooCorp/python-can-usb8dev/issues"
+Homepage = "https://github.com/nebkat/python-can-usb8dev"
+Issues = "https://github.com/nebkat/python-can-usb8dev/issues"
 
 # Registers the driver as a first-class python-can interface. After install,
 # `can.Bus(interface="usb8dev", channel=<serial>, bitrate=...)`,
