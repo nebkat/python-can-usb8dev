@@ -38,7 +38,7 @@ from typing import List, Optional
 
 import usb.core
 import usb.util
-from can import BusABC, CanProtocol, Message
+from can import BusABC, BusState, CanProtocol, Message
 from can.exceptions import CanInitializationError, CanOperationError
 
 log = logging.getLogger("can.usb8dev")
@@ -172,16 +172,22 @@ class Usb8DevBus(BusABC):
         one_shot: bool = False,
         status_frames: bool = True,
         sample_point: float = 0.875,
+        state: BusState = BusState.ACTIVE,
         **kwargs,
     ):
         """
         :param channel: device serial number; ``None`` picks the first found.
         :param serial: alias for ``channel`` (python-can/usb2can convention).
         :param listen_only: silent / listen-only mode (no ACK, no TX).
-        :param loopback: internal loopback (own frames echoed, no bus needed).
+        :param state: python-can convention — ``BusState.PASSIVE`` selects
+            listen-only (equivalent to ``listen_only=True``); ``BusState.ACTIVE``
+            (the default) is normal operation.
+        :param loopback: hardware internal loopback — a self-test mode with no
+            bus attached. This is NOT python-can's receive-own-messages echo.
         :param one_shot: disable automatic retransmission.
         :param status_frames: surface bus error/status frames as error Messages.
         """
+        listen_only = listen_only or state == BusState.PASSIVE
         self._want = serial or channel
         self._dev = self._acquire()
         if self._dev is None:
@@ -193,6 +199,7 @@ class Usb8DevBus(BusABC):
         self._serial = _serial_of(self._dev)
         self.channel_info = f"USB2CAN {self._serial or '(unknown serial)'}"
         self._can_protocol = CanProtocol.CAN_20
+        self._state = BusState.PASSIVE if listen_only else BusState.ACTIVE
         self._rx = deque()  # parsed Messages not yet handed to _recv_internal
         self._status_frames = status_frames
 
@@ -204,6 +211,11 @@ class Usb8DevBus(BusABC):
         self._open(bitrate, sample_point, listen_only, loopback, one_shot)
 
         super().__init__(channel, **kwargs)
+
+    @property
+    def state(self) -> BusState:
+        # BusABC's default getter is hard-coded to ACTIVE; report the real state.
+        return self._state
 
     # -- device acquisition / configuration --
 
