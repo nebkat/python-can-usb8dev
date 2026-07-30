@@ -32,6 +32,7 @@ directly — nothing extra to install beyond the pip wheels.
 
 import logging
 import struct
+import time
 from collections import deque
 from typing import List, Optional
 
@@ -181,31 +182,70 @@ class Usb8DevBus(BusABC):
         :param one_shot: disable automatic retransmission.
         :param status_frames: surface bus error/status frames as error Messages.
         """
-        want = serial or channel
-        device = None
-        for dev in (_find(find_all=True) or []):
-            if want is None or _serial_of(dev) == want:
-                device = dev
-                break
-        if device is None:
+        self._want = serial or channel
+        self._dev = self._acquire()
+        if self._dev is None:
             raise CanInitializationError(
                 "no USB2CAN device found"
-                + (f" with serial {want!r}" if want else "")
+                + (f" with serial {self._want!r}" if self._want else "")
             )
 
-        self._dev = device
-        self._serial = _serial_of(device)
+        self._serial = _serial_of(self._dev)
         self.channel_info = f"USB2CAN {self._serial or '(unknown serial)'}"
         self._can_protocol = CanProtocol.CAN_20
         self._rx = deque()  # parsed Messages not yet handed to _recv_internal
         self._status_frames = status_frames
 
-        # Claim the device. set_configuration() is idempotent-ish; ignore the
-        # "already configured / busy" error the OS raises when it holds the cfg.
-        try:
-            self._dev.set_configuration()
-        except usb.core.USBError:
-            pass
+        self._configure()
+
+        # Recover from a previous unclean exit: a stale CLOSE just errors, which
+        # we ignore. Then OPEN with our timing + mode flags.
+        self._send_cmd(CMD_CLOSE, check=False)
+        self._open(bitrate, sample_point, listen_only, loopback, one_shot)
+
+        super().__init__(channel, **kwargs)
+
+    # -- device acquisition / configuration --
+
+    def _acquire(self):
+        """Return the first matching device (by serial if requested), or None."""
+        for dev in (_find(find_all=True) or []):
+            if self._want is None or _serial_of(dev) == self._want:
+                return dev
+        return None
+
+    def _configure(self):
+        """Set configuration + claim, recovering from a stuck device.
+
+        On macOS/libusb (and after an unclean previous session) ``set_configuration``
+        can fail with a generic USBError even though the device is fine. A USB
+        reset clears it; the device re-enumerates, so we re-acquire and retry.
+        """
+        last = None
+        for _ in range(3):
+            try:
+                self._dev.set_configuration()
+                self._dev.get_active_configuration()
+                break
+            except usb.core.USBError as e:
+                last = e
+                try:
+                    self._dev.reset()
+                except usb.core.USBError:
+                    pass
+                usb.util.dispose_resources(self._dev)
+                # reset re-enumerates the device; wait for it to reappear.
+                dev = None
+                for _ in range(20):
+                    time.sleep(0.2)
+                    dev = self._acquire()
+                    if dev is not None:
+                        break
+                if dev is not None:
+                    self._dev = dev
+        else:
+            raise CanInitializationError(f"could not configure device: {last}")
+
         # Linux may have the kernel usb_8dev driver attached; detach it. Harmless
         # (and absent) on Windows/macOS.
         try:
@@ -217,13 +257,6 @@ class Usb8DevBus(BusABC):
             usb.util.claim_interface(self._dev, 0)
         except usb.core.USBError:
             pass
-
-        # Recover from a previous unclean exit: a stale CLOSE just errors, which
-        # we ignore. Then OPEN with our timing + mode flags.
-        self._send_cmd(CMD_CLOSE, check=False)
-        self._open(bitrate, sample_point, listen_only, loopback, one_shot)
-
-        super().__init__(channel, **kwargs)
 
     # -- command channel --
 
