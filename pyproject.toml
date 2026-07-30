@@ -9,7 +9,7 @@ description = "Pure-Python python-can backend for the 8devices USB2CAN / Korlan 
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "MIT" }
-authors = [{ name = "Troo" }]
+authors = [{ name = "Nebojša Cvetković", email = "nebkat@gmail.com" }]
 keywords = ["can", "canbus", "python-can", "usb2can", "korlan", "8devices", "usb_8dev", "socketcan", "j1939", "isobus"]
 classifiers = [
     "Development Status :: 4 - Beta",
